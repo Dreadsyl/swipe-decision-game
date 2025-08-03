@@ -1,13 +1,14 @@
 import random
+import helper_functions as hf
 
 ### PLAYER CLASS ###
 class Player:
 
     # Initial player stats 
     def __init__(self):
-        self.hp = 3
-        self.food = 2
-        self.morale = 2
+        self.hp = 5
+        self.food = 3
+        self.morale = 3
 
         self.low_food = 0
         self.low_morale = 0
@@ -18,22 +19,45 @@ class Player:
 
     # Update stats
     def apply_effects(self, hp=0, food=0, morale=0):
-        self.hp += hp
-        self.food += food
-        self.morale += morale
+        self.update_hp(hp)
+        self.update_food(food)
+        self.update_morale(morale)
+
+    def update_hp(self, value):
+        self.hp = hf.clamp(self.hp + value, 0, 5)
+
+    def update_food(self, value):
+        self.food = hf.clamp(self.food + value, 0, 8)
+
+    def update_morale(self, value):
+        self.morale = hf.clamp(self.morale + value, 0, 5)
 
     # Check if player is alive
     def is_alive(self):
         return self.hp > 0
     
-    # Check for player food and morale
-    def are_food_and_morale_low(self, food_days, morale_days):
+    # Check for player food and morale + daily decay
+    def daily_decay(self):
+        self.update_food(-1)
+
         if self.food <= 0:
             self.low_food += 1
+            self.update_hp(-1)
+            if self.low_food % 2 == 0:
+                self.update_morale(-1)
+        else:
+            self.low_food = 0
+
         if self.morale <= 0:
             self.low_morale += 1
+        else:
+            self.low_morale = 0
 
-        return self.low_food >= food_days or self.low_morale >= morale_days
+    def is_food_low(self, food_days):
+        return self.low_food >= food_days
+    
+    def is_morale_low(self, morale_days):
+        return  self.low_morale >= morale_days
 
 
 ###  SCENARIOS ###
@@ -95,6 +119,20 @@ scenarios = [
     }
 ]
 
+### EVENT LOG ###
+event_log = []
+def event_log_update(day, scenario, choice):
+    event_log.append(f"Day {day}: {scenario['description']} -> Choice: {choice}")
+
+def final_score(num_of_days, hp, food, morale):
+    return (num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)
+
+def print_event_log(score):
+    print("\nYour journey is over. Here's what happened:")
+    for event in event_log:
+        print(event)
+    print(f"Your final score is: {score}")
+
 
 ### MAIN GAME ###
 # Global variables
@@ -122,11 +160,24 @@ while current_day <= NUM_DAYS:
     else:
         effect = scenario["right_choice"]["effects"]
 
-    # Applay effects and check survival
+    # Apply effects
     player.apply_effects(**effect)
-    if not player.is_alive() or player.are_food_and_morale_low(2, 2):
+    player.daily_decay()
+
+    # Event log
+    event_log_update(current_day, scenario, player_choice)
+    
+    # Check survival
+    if not player.is_alive():
         print("You have perished... Game Over!")
         break
+    if player.is_food_low(3):
+        print("Your party was starving for too long... Game Over!")
+        break
+    if player.is_morale_low(3):
+        print("Your party got depressed and disbanded... Game Over!")
+        break
+    
     print(player.get_stats_as_string())
     
     # End of the day
@@ -135,3 +186,6 @@ while current_day <= NUM_DAYS:
         print("Congratulations! You survived the journey!")
         break
     current_day += 1
+
+# Printing choices and final score
+print_event_log(final_score(current_day, player.hp, player.food, player.morale))
