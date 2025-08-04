@@ -1,5 +1,6 @@
 import random
 import helper_functions as hf
+import list_of_scenarios as los
 
 ### PLAYER CLASS ###
 class Player:
@@ -61,68 +62,13 @@ class Player:
 
 
 ###  SCENARIOS ###
-scenarios = [
-    {
-        "description": "You find an abandoned hut with food.",
-        "left_choice": {
-            "text": "Search the hut",
-            "effects": {"hp": 0, "food": +1, "morale": +1}
-        },
-        "right_choice": {
-            "text": "Ignore it and move on",
-            "effects": {"hp": 0, "food": 0, "morale": -1}
-        }
-    },
-    {
-        "description": "A mischievous goblin offers to trade a 'lucky rock' for some of your food.",
-        "left_choice": {
-            "text": "Trade your food for the rock",
-            "effects": {"hp": 0, "food": -1, "morale": +2}
-        },
-        "right_choice": {
-            "text": "Refuse and chase the goblin away",
-            "effects": {"hp": 0, "food": 0, "morale": -1}
-        }
-    },
-    {
-        "description": "You come across a sparkling pond said to heal those who drink from it.",
-        "left_choice": {
-            "text": "Drink from the pond",
-            "effects": {"hp": +2, "food": -1, "morale": +1}
-        },
-        "right_choice": {
-            "text": "Avoid it, fearing a curse",
-            "effects": {"hp": 0, "food": 0, "morale": -1}
-        }
-    },
-    {
-        "description": "A wounded knight asks for your help on the roadside.",
-        "left_choice": {
-            "text": "Help the knight and share your food",
-            "effects": {"hp": -1, "food": -1, "morale": +2}
-        },
-        "right_choice": {
-            "text": "Ignore the knight and move on",
-            "effects": {"hp": 0, "food": 0, "morale": -2}
-        }
-    },
-    {
-        "description": "You discover a hidden chest half-buried in the forest floor.",
-        "left_choice": {
-            "text": "Open the chest",
-            "effects": {"hp": -1, "food": +2, "morale": +1}
-        },
-        "right_choice": {
-            "text": "Leave it untouched",
-            "effects": {"hp": 0, "food": 0, "morale": 0}
-        }
-    }
-]
+scenarios = los.scenarios
 
 ### EVENT LOG ###
 event_log = []
-def event_log_update(day, scenario, choice):
-    event_log.append(f"Day {day}: {scenario['description']} -> Choice: {choice}")
+log_choice_text = ""
+def event_log_update(day, scenario, choice, choice_text):
+    event_log.append(f"Day {day}: {scenario['description']} -> Choice: {choice} | {choice_text}")
 
 def final_score(num_of_days, hp, food, morale):
     return (num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)
@@ -156,16 +102,36 @@ while current_day <= NUM_DAYS:
         player_choice = input("Swipe Left (L) or Right (R)? ").strip().upper()
 
     if player_choice == "L":
-        effect = scenario["left_choice"]["effects"]
+        chosen_option = scenario["left_choice"] 
+        if "chance" in chosen_option:
+            if random.random() <= chosen_option["chance"]:
+                effect = chosen_option["success_effects"]
+                log_choice_text = f"{chosen_option['log_text']} Success!"
+            else:
+                effect = chosen_option["success_effects"]
+                log_choice_text = f"{chosen_option['log_text']} Failure..."
+        else:
+            effect = chosen_option["effects"]
+            log_choice_text = chosen_option["log_text"]
     else:
-        effect = scenario["right_choice"]["effects"]
+        chosen_option = scenario["right_choice"] 
+        effect = chosen_option["effects"]
+        log_choice_text = chosen_option["log_text"]
+
+    print("\n", log_choice_text)
 
     # Apply effects
+    surprise = los.get_random_event()
+    if surprise != -1:
+        print(surprise["text"])
+        player.apply_effects(surprise["hp"], surprise["food"], surprise["morale"])
+        event_log.append(f"   Surprise Event: {surprise['text']}")
+
     player.apply_effects(**effect)
     player.daily_decay()
 
     # Event log
-    event_log_update(current_day, scenario, player_choice)
+    event_log_update(current_day, scenario, player_choice, log_choice_text)
     
     # Check survival
     if not player.is_alive():
