@@ -16,7 +16,7 @@ class Player:
 
     # Get current stats as string
     def get_stats_as_string(self):
-        return f"\nPlayer stats:\n- {self.hp} HP\n- {self.food} FOOD\n- {self.morale} MORALE"
+        return f"\nPlayer stats:\n- {self.hp} HP ❤️\n- {self.food} FOOD 🍗\n- {self.morale} MORALE 😇"
 
     # Update stats
     def apply_effects(self, hp=0, food=0, morale=0):
@@ -70,11 +70,13 @@ log_choice_text = ""
 def event_log_update(day, scenario, choice, choice_text):
     event_log.append(f"Day {day}: {scenario['description']} -> Choice: {choice} | {choice_text}")
 
+# Final score
 def final_score(num_of_days, hp, food, morale):
     return (num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)
 
-def print_event_log(score):
-    print("\nYour journey is over. Here's what happened:")
+# End game stats
+def print_event_log(score, days):
+    print(f"\nYour journey is over, you survived for {days}. Here's what happened:")
     for event in event_log:
         print(event)
     print(f"Your final score is: {score}")
@@ -108,7 +110,7 @@ while current_day <= NUM_DAYS:
                 effect = chosen_option["success_effects"]
                 log_choice_text = f"{chosen_option['log_text']} Success!"
             else:
-                effect = chosen_option["success_effects"]
+                effect = chosen_option["failure_effects"]
                 log_choice_text = f"{chosen_option['log_text']} Failure..."
         else:
             effect = chosen_option["effects"]
@@ -120,18 +122,21 @@ while current_day <= NUM_DAYS:
 
     print("\n", log_choice_text)
 
-    # Apply effects
+    # Check for surprise event and Apply effects on player
     surprise = los.get_random_event()
+    was_surprise_event = False
     if surprise != -1:
         print(surprise["text"])
         player.apply_effects(surprise["hp"], surprise["food"], surprise["morale"])
-        event_log.append(f"   Surprise Event: {surprise['text']}")
+        was_surprise_event = True
 
     player.apply_effects(**effect)
     player.daily_decay()
 
     # Event log
     event_log_update(current_day, scenario, player_choice, log_choice_text)
+    if was_surprise_event:
+        event_log.append(f"   - Surprise Event: {surprise['text']}")
     
     # Check survival
     if not player.is_alive():
@@ -154,4 +159,4 @@ while current_day <= NUM_DAYS:
     current_day += 1
 
 # Printing choices and final score
-print_event_log(final_score(current_day, player.hp, player.food, player.morale))
+print_event_log(final_score(current_day, player.hp, player.food, player.morale), current_day)
