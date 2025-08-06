@@ -67,8 +67,11 @@ scenarios = los.scenarios
 ### EVENT LOG ###
 event_log = []
 log_choice_text = ""
-def event_log_update(day, scenario, choice, choice_text):
-    event_log.append(f"Day {day}: {scenario['description']} -> Choice: {choice} | {choice_text}")
+def event_log_update(day, scenario, choice, choice_text, effect_r):
+    event_log.append(
+        f"Day {day}: {scenario['description']} -> Choice: {choice} | {choice_text}"
+        f"\n       (HP: {effect_r['hp']}, Food: {effect_r['food']}, Morale {effect_r['morale']})"
+    )
 
 # Final score
 def final_score(num_of_days, hp, food, morale):
@@ -89,6 +92,37 @@ NUM_DAYS = 10
 current_day = 1
 player = Player()
 
+# Global functions
+# Returns the effect dict and log text based on the player's choice.
+def process_player_choice(scenario, choice):
+    if choice == "L":
+        chosen_option = scenario["left_choice"]
+    else:
+        chosen_option = scenario["right_choice"]
+
+    # Check for chance-based outcomes
+    if "chance" in chosen_option:
+        if random.random() <= chosen_option["chance"]:
+            effect = chosen_option["success_effects"]
+            log_text = f"{chosen_option['log_text']} Success!"
+        else:
+            effect = chosen_option["failure_effects"]
+            log_text = f"{chosen_option['log_text']} Failure..."
+    else:
+        effect = chosen_option["effects"]
+        log_text = chosen_option["log_text"]
+
+    return effect, log_text
+
+def process_surprise_event():
+    surprise_loc = los.get_random_event()
+    if surprise_loc != -1:
+        print(surprise_loc["text"])
+        return surprise_loc  # return the dict with effects
+    return None
+
+
+
 # Main Game Loop
 while current_day <= NUM_DAYS:
     print(f"=== Day {current_day} ===\n")
@@ -103,40 +137,22 @@ while current_day <= NUM_DAYS:
     while player_choice not in ["L", "R"]:
         player_choice = input("Swipe Left (L) or Right (R)? ").strip().upper()
 
-    if player_choice == "L":
-        chosen_option = scenario["left_choice"] 
-        if "chance" in chosen_option:
-            if random.random() <= chosen_option["chance"]:
-                effect = chosen_option["success_effects"]
-                log_choice_text = f"{chosen_option['log_text']} Success!"
-            else:
-                effect = chosen_option["failure_effects"]
-                log_choice_text = f"{chosen_option['log_text']} Failure..."
-        else:
-            effect = chosen_option["effects"]
-            log_choice_text = chosen_option["log_text"]
-    else:
-        chosen_option = scenario["right_choice"] 
-        effect = chosen_option["effects"]
-        log_choice_text = chosen_option["log_text"]
+    # Get and process player choice
+    effect, log_choice_text = process_player_choice(scenario, player_choice)
+    print(f"\n{log_choice_text}")
 
-    print("\n", log_choice_text)
-
-    # Check for surprise event and Apply effects on player
-    surprise = los.get_random_event()
-    was_surprise_event = False
-    if surprise != -1:
-        print(surprise["text"])
+    # Handle surprise event
+    surprise = process_surprise_event()
+    if surprise:
         player.apply_effects(surprise["hp"], surprise["food"], surprise["morale"])
-        was_surprise_event = True
+        event_log.append(f"   Surprise Event: {surprise['text']}")
 
+    # Apply main choice effect and daily decay
     player.apply_effects(**effect)
     player.daily_decay()
 
-    # Event log
-    event_log_update(current_day, scenario, player_choice, log_choice_text)
-    if was_surprise_event:
-        event_log.append(f"   - Surprise Event: {surprise['text']}")
+    # Log event
+    event_log_update(current_day, scenario, player_choice, log_choice_text, effect)
     
     # Check survival
     if not player.is_alive():
