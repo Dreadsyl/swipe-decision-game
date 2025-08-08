@@ -6,13 +6,14 @@ import list_of_scenarios as los
 class Player:
 
     # Initial player stats 
-    def __init__(self):
-        self.hp = 5
-        self.food = 3
-        self.morale = 3
+    def __init__(self, hp=5, food=3, morale=3):
+        self.hp = hp
+        self.food = food
+        self.morale = morale
 
         self.low_food = 0
         self.low_morale = 0
+        self.cause_of_death = "None"
 
     # Get current stats as string
     def get_stats_as_string(self):
@@ -61,9 +62,6 @@ class Player:
         return  self.low_morale >= morale_days
 
 
-###  SCENARIOS ###
-scenarios = los.scenarios
-
 ### EVENT LOG ###
 event_log = []
 log_choice_text = ""
@@ -78,11 +76,16 @@ def final_score(num_of_days, hp, food, morale):
     return (num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)
 
 # End game stats
-def print_event_log(score, days):
-    print(f"\nYour journey is over, you survived for {days}. Here's what happened:")
+def print_event_log(score, days, death):
+    print(f"\nYour journey is over, you survived for {days} days. Here's what happened:")
     for event in event_log:
         print(event)
-    print(f"Your final score is: {score}")
+
+    print("\n🌟 \033[32mAdventure Complete!\033[0m 🌟")
+    print(f"  \033[32mYou survived {days} days.\033[0m")
+    if death != "None":
+        print(f"  \033[31mCause of death: {death}\033[0m")
+    print(f"  \033[32mFinal score: {score}\033[0m")
 
 
 ### MAIN GAME ###
@@ -91,6 +94,12 @@ NUM_DAYS = 10
 
 current_day = 1
 player = Player()
+
+###  SCENARIOS ###
+scenarios = los.scenarios
+if NUM_DAYS > len(scenarios):
+    raise ValueError("NUM_DAYS exceeds available scenarios.")
+random_list_of_scenarios = random.sample(scenarios, NUM_DAYS)
 
 # Global functions
 # Returns the effect dict and log text based on the player's choice.
@@ -104,75 +113,106 @@ def process_player_choice(scenario, choice):
     if "chance" in chosen_option:
         if random.random() <= chosen_option["chance"]:
             effect = chosen_option["success_effects"]
-            log_text = f"{chosen_option['log_text']} Success!"
+            log_text = f"\033[32m{chosen_option['log_text']} Success!\033[0m"
         else:
             effect = chosen_option["failure_effects"]
-            log_text = f"{chosen_option['log_text']} Failure..."
+            log_text = f"\033[31m{chosen_option['log_text']} Failure...\033[0m"
     else:
         effect = chosen_option["effects"]
-        log_text = chosen_option["log_text"]
+        log_text = f"\033[33m{chosen_option['log_text']}\033[0m"
 
     return effect, log_text
 
 def process_surprise_event():
     surprise_loc = los.get_random_event()
     if surprise_loc != -1:
-        print(surprise_loc["text"])
+        print(f"\033[35m{surprise_loc['text']}\033[0m")
         return surprise_loc  # return the dict with effects
     return None
 
+def reset_globals():
+    global current_day, player, event_log, log_choice_text, random_list_of_scenarios
+    current_day = 1
+    player = Player()
+    event_log = []
+    log_choice_text = ""
+    random_list_of_scenarios = random.sample(scenarios, NUM_DAYS)
 
+def choose_difficulty():
+    global player
+    difficulty = input("\nChoose difficulty: (1) Easy, (2) Normal, (3) Hard\nDifficulty: ").strip()
+    if difficulty == "1":
+        player = Player(hp=6, food=4, morale=4)
+    elif difficulty == "3":
+        player = Player(hp=4, food=2, morale=2)
+    else:
+        player = Player()
 
 # Main Game Loop
-while current_day <= NUM_DAYS:
-    print(f"=== Day {current_day} ===\n")
+while True:
+    choose_difficulty()
+    reset_globals()
 
-    scenario = random.choice(scenarios)
-    print(scenario["description"])
-    print("L: ", scenario["left_choice"]["text"])
-    print("R: ", scenario["right_choice"]["text"])
+    while current_day <= NUM_DAYS:
+        print("\n" + "="*25)
+        print(f"       🌄  DAY {current_day}  🌄")
+        print("="*25 + "\n")
 
-    # Get player choice and check for input validation
-    player_choice = ""
-    while player_choice not in ["L", "R"]:
-        player_choice = input("Swipe Left (L) or Right (R)? ").strip().upper()
+        scenario = random_list_of_scenarios[current_day-1]
 
-    # Get and process player choice
-    effect, log_choice_text = process_player_choice(scenario, player_choice)
-    print(f"\n{log_choice_text}")
+        print(scenario["description"])
+        print("L: ", scenario["left_choice"]["text"])
+        print("R: ", scenario["right_choice"]["text"])
 
-    # Handle surprise event
-    surprise = process_surprise_event()
-    if surprise:
-        player.apply_effects(surprise["hp"], surprise["food"], surprise["morale"])
-        event_log.append(f"   Surprise Event: {surprise['text']}")
+        # Get player choice and check for input validation
+        player_choice = ""
+        while player_choice not in ["L", "R"]:
+            player_choice = input("Swipe Left (L) or Right (R)? ").strip().upper()
 
-    # Apply main choice effect and daily decay
-    player.apply_effects(**effect)
-    player.daily_decay()
+        # Get and process player choice
+        effect, log_choice_text = process_player_choice(scenario, player_choice)
+        print(f"\n{log_choice_text}")
 
-    # Log event
-    event_log_update(current_day, scenario, player_choice, log_choice_text, effect)
-    
-    # Check survival
-    if not player.is_alive():
-        print("You have perished... Game Over!")
+        # Handle surprise event
+        surprise = process_surprise_event()
+        if surprise:
+            player.apply_effects(surprise["hp"], surprise["food"], surprise["morale"])
+            event_log.append(f" \033[35m• Surprise Event: {surprise['text']}\033[0m")
+
+        # Apply main choice effect and daily decay
+        player.apply_effects(**effect)
+        player.daily_decay()
+
+        # Log event
+        event_log_update(current_day, scenario, player_choice, log_choice_text, effect)
+        
+        # Check survival
+        if not player.is_alive():
+            print("You have perished... Game Over!")
+            player.cause_of_death = "Injury"
+            break
+        if player.is_food_low(3):
+            print("Your party was starving for too long... Game Over!")
+            player.cause_of_death = "Starvation"
+            break
+        if player.is_morale_low(3):
+            print("Your party got depressed and disbanded... Game Over!")
+            player.cause_of_death = "Hopelessness"
+            break
+        
+        print(player.get_stats_as_string())
+        
+        # End of the day
+        print(f"\n===== 🌑 End of day {current_day} 🌑 =====")
+        if current_day == NUM_DAYS:
+            print("Congratulations! You survived the journey!")
+            break
+        current_day += 1
+
+    # Printing choices and final score
+    print_event_log(final_score(current_day, player.hp, player.food, player.morale), current_day, player.cause_of_death)
+
+    # Check if player wants to play again
+    again = input("\nPlay again? (Y/N): ").strip().upper()
+    if again != "Y":
         break
-    if player.is_food_low(3):
-        print("Your party was starving for too long... Game Over!")
-        break
-    if player.is_morale_low(3):
-        print("Your party got depressed and disbanded... Game Over!")
-        break
-    
-    print(player.get_stats_as_string())
-    
-    # End of the day
-    print(f"\n--- End of day {current_day} ---\n")
-    if current_day == NUM_DAYS:
-        print("Congratulations! You survived the journey!")
-        break
-    current_day += 1
-
-# Printing choices and final score
-print_event_log(final_score(current_day, player.hp, player.food, player.morale), current_day)
