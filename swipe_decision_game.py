@@ -6,10 +6,15 @@ import list_of_scenarios as los
 class Player:
 
     # Initial player stats 
-    def __init__(self, hp=5, food=3, morale=3):
+    def __init__(self, hp=5, food=3, morale=3, hp_max=5, food_max=8, morale_max=5, difficulty="normal"):
         self.hp = hp
         self.food = food
         self.morale = morale
+        self.difficulty = difficulty
+
+        self.hp_max = hp_max
+        self.food_max = food_max
+        self.morale_max = morale_max
 
         self.low_food = 0
         self.low_morale = 0
@@ -26,13 +31,13 @@ class Player:
         self.update_morale(morale)
 
     def update_hp(self, value):
-        self.hp = hf.clamp(self.hp + value, 0, 5)
+        self.hp = hf.clamp(self.hp + value, 0, self.hp_max)
 
     def update_food(self, value):
-        self.food = hf.clamp(self.food + value, 0, 8)
+        self.food = hf.clamp(self.food + value, 0, self.food_max)
 
     def update_morale(self, value):
-        self.morale = hf.clamp(self.morale + value, 0, 5)
+        self.morale = hf.clamp(self.morale + value, 0, self.morale_max)
 
     # Check if player is alive
     def is_alive(self):
@@ -45,7 +50,7 @@ class Player:
         if self.food <= 0:
             self.low_food += 1
             self.update_hp(-1)
-            if self.low_food % 2 == 0:
+            if self.low_food % diff_conf["starve_morale_every_n_days"] == 0:
                 self.update_morale(-1)
         else:
             self.low_food = 0
@@ -62,6 +67,29 @@ class Player:
         return  self.low_morale >= morale_days
 
 
+### MAIN GAME ###
+# Global variables
+NUM_DAYS = 10
+
+current_day = 1
+player = Player()
+
+diff_conf = los.DIFF_CFG["normal"]
+"""
+    diff_conf["starve_morale_every_n_days"]
+    diff_conf["starve_morale_every_n_days"]
+    diff_conf["low_food_death_days"]
+    diff_conf["low_morale_death_days"]
+    diff_conf["surprise_chance"]
+    diff_conf["risk_success_bonus"]
+"""
+
+###  SCENARIOS ###
+scenarios = los.scenarios
+if NUM_DAYS > len(scenarios):
+    raise ValueError("NUM_DAYS exceeds available scenarios.")
+random_list_of_scenarios = random.sample(scenarios, NUM_DAYS)
+
 ### EVENT LOG ###
 event_log = []
 log_choice_text = ""
@@ -72,8 +100,8 @@ def event_log_update(day, scenario, choice, choice_text, effect_r):
     )
 
 # Final score
-def final_score(num_of_days, hp, food, morale):
-    return (num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)
+def final_score(num_of_days, hp, food, morale, diff):
+    return ((num_of_days * 10) + (hp * 5) + (food * 2) + (morale * 5)) * diff
 
 # End game stats
 def print_event_log(score, days, death):
@@ -87,20 +115,6 @@ def print_event_log(score, days, death):
         print(f"  \033[31mCause of death: {death}\033[0m")
     print(f"  \033[32mFinal score: {score}\033[0m")
 
-
-### MAIN GAME ###
-# Global variables
-NUM_DAYS = 10
-
-current_day = 1
-player = Player()
-
-###  SCENARIOS ###
-scenarios = los.scenarios
-if NUM_DAYS > len(scenarios):
-    raise ValueError("NUM_DAYS exceeds available scenarios.")
-random_list_of_scenarios = random.sample(scenarios, NUM_DAYS)
-
 # Global functions
 # Returns the effect dict and log text based on the player's choice.
 def process_player_choice(scenario, choice):
@@ -111,7 +125,9 @@ def process_player_choice(scenario, choice):
 
     # Check for chance-based outcomes
     if "chance" in chosen_option:
-        if random.random() <= chosen_option["chance"]:
+        # Getting chance for success
+        chance = hf.clamp(chosen_option["chance"] + diff_conf["risk_success_bonus"], 0.05, 0.95)
+        if random.random() <= chance:
             effect = chosen_option["success_effects"]
             log_text = f"\033[32m{chosen_option['log_text']} Success!\033[0m"
         else:
@@ -124,7 +140,7 @@ def process_player_choice(scenario, choice):
     return effect, log_text
 
 def process_surprise_event():
-    surprise_loc = los.get_random_event()
+    surprise_loc = los.get_random_event(diff_conf["surprise_chance"])
     if surprise_loc != -1:
         print(f"\033[35m{surprise_loc['text']}\033[0m")
         return surprise_loc  # return the dict with effects
@@ -139,14 +155,24 @@ def reset_globals():
     random_list_of_scenarios = random.sample(scenarios, NUM_DAYS)
 
 def choose_difficulty():
-    global player
+    global player, diff_conf
     difficulty = input("\nChoose difficulty: (1) Easy, (2) Normal, (3) Hard\nDifficulty: ").strip()
     if difficulty == "1":
-        player = Player(hp=6, food=4, morale=4)
+        player = Player(hp=6, food=4, morale=4, hp_max=6, food_max=9, morale_max=6, difficulty="easy")
+        diff_conf = los.DIFF_CFG["easy"]
     elif difficulty == "3":
-        player = Player(hp=4, food=2, morale=2)
+        player = Player(hp=4, food=2, morale=2, hp_max=4, food_max=7, morale_max=4, difficulty="hard")
+        diff_conf = los.DIFF_CFG["hard"]
     else:
         player = Player()
+        diff_conf = los.DIFF_CFG["normal"]
+
+def difficulty_mul(difficulty):
+    if difficulty == "normal":
+        return 2
+    elif difficulty == "hard":
+        return 3
+    return 1
 
 # Main Game Loop
 while True:
@@ -191,11 +217,11 @@ while True:
             print("You have perished... Game Over!")
             player.cause_of_death = "Injury"
             break
-        if player.is_food_low(3):
+        if player.is_food_low(diff_conf["low_food_death_days"]):
             print("Your party was starving for too long... Game Over!")
             player.cause_of_death = "Starvation"
             break
-        if player.is_morale_low(3):
+        if player.is_morale_low(diff_conf["low_morale_death_days"]):
             print("Your party got depressed and disbanded... Game Over!")
             player.cause_of_death = "Hopelessness"
             break
@@ -210,7 +236,7 @@ while True:
         current_day += 1
 
     # Printing choices and final score
-    print_event_log(final_score(current_day, player.hp, player.food, player.morale), current_day, player.cause_of_death)
+    print_event_log(final_score(current_day, player.hp, player.food, player.morale, difficulty_mul(player.difficulty)), current_day, player.cause_of_death)
 
     # Check if player wants to play again
     again = input("\nPlay again? (Y/N): ").strip().upper()

@@ -6,7 +6,7 @@ scenarios = [
         "description": "You find a dark cave. It might have treasure, or danger.",
         "left_choice": {
             "text": "Explore the cave",
-            "chance": 0.5,  # 50% success
+            "chance": 0.5,
             "success_effects": {"hp": 0, "food": 2, "morale": 1},
             "failure_effects": {"hp": -2, "food": 0, "morale": -1},
             "log_text": "You brave the cave."
@@ -34,14 +34,14 @@ scenarios = [
         "description": "A wounded knight begs for help by the roadside.",
         "left_choice": {
             "text": "Help the knight",
-            "chance": 0.6,  # 60% success
+            "chance": 0.6,
             "success_effects": {"hp": 1, "food": -1, "morale": 2},
             "failure_effects": {"hp": -1, "food": -1, "morale": 0},
             "log_text": "You offered aid to the knight."
         },
         "right_choice": {
             "text": "Ignore the knight",
-            "effects": {"hp": 0, "food": 0, "morale": -2},
+            "effects": {"hp": 0, "food": 0, "morale": -1},
             "log_text": "You left the knight to their fate."
         }
     },
@@ -49,7 +49,7 @@ scenarios = [
         "description": "You hear singing in the forest. A fae voice calls your name.",
         "left_choice": {
             "text": "Follow the voice",
-            "chance": 0.4,  # 40% success
+            "chance": 0.4,
             "success_effects": {"hp": 0, "food": 1, "morale": 3},
             "failure_effects": {"hp": -2, "food": 0, "morale": -2},
             "log_text": "You venture toward the voice."
@@ -64,14 +64,14 @@ scenarios = [
         "description": "A suspicious goblin offers a 'lucky' rock in exchange for food.",
         "left_choice": {
             "text": "Trade 1 food for the rock",
-            "chance": 0.5,  # 50% success
+            "chance": 0.5, 
             "success_effects": {"hp": 0, "food": -1, "morale": 2},
             "failure_effects": {"hp": -1, "food": -1, "morale": -1},
             "log_text": "You give the goblin some food."
         },
         "right_choice": {
             "text": "Chase the goblin away",
-            "effects": {"hp": 0, "food": 0, "morale": 0},
+            "effects": {"hp": 0, "food": 0, "morale": 1},
             "log_text": "The goblin flees into the woods."
         }
     },
@@ -79,7 +79,7 @@ scenarios = [
         "description": "A hidden chest is half-buried in the forest floor.",
         "left_choice": {
             "text": "Open the chest",
-            "chance": 0.5,  # 50% success
+            "chance": 0.5,
             "success_effects": {"hp": 0, "food": 2, "morale": 2},
             "failure_effects": {"hp": -2, "food": 0, "morale": -1},
             "log_text": "You open the mysterious chest."
@@ -94,7 +94,7 @@ scenarios = [
         "description": "You find a sparkling pond said to heal those who drink from it.",
         "left_choice": {
             "text": "Drink from the pond",
-            "chance": 0.66,  # 66% success
+            "chance": 0.66,
             "success_effects": {"hp": 2, "food": 0, "morale": 1},
             "failure_effects": {"hp": -2, "food": 0, "morale": -1},
             "log_text": "You drink the mysterious water."
@@ -109,8 +109,8 @@ scenarios = [
         "description": "You reach an abandoned watchtower with a rickety ladder.",
         "left_choice": {
             "text": "Climb the tower",
-            "chance": 0.5,  # 50% success
-            "success_effects": {"hp": 0, "food": 1, "morale": 2},
+            "chance": 0.5,
+            "success_effects": {"hp": 0, "food": 2, "morale": 2},
             "failure_effects": {"hp": -2, "food": 0, "morale": -2},
             "log_text": "You climb the fragile ladder."
         },
@@ -124,12 +124,12 @@ scenarios = [
         "description": "A group of peasants invite you to share their meal.",
         "left_choice": {
             "text": "Accept their invitation",
-            "effects": {"hp": 1, "food": 1, "morale": 2},
+            "effects": {"hp": 1, "food": 2, "morale": 1},
             "log_text": "You enjoy a warm meal with them."
         },
         "right_choice": {
             "text": "Decline politely",
-            "effects": {"hp": 0, "food": 0, "morale": 0},
+            "effects": {"hp": 0, "food": 0, "morale": -1},
             "log_text": "You thank them and continue your journey."
         }
     },
@@ -137,7 +137,7 @@ scenarios = [
         "description": "A howling wolf blocks the forest path.",
         "left_choice": {
             "text": "Try to scare it away",
-            "chance": 0.5,  # 50% success
+            "chance": 0.5,
             "success_effects": {"hp": 0, "food": 0, "morale": 1},
             "failure_effects": {"hp": -2, "food": 0, "morale": -1},
             "log_text": "You confront the wolf cautiously."
@@ -151,8 +151,8 @@ scenarios = [
 ]
 
 ### LIST OF SURPRISE EVENTS ###
-def get_random_event():
-    if random.random() < 0.2:  # 20% chance
+def get_random_event(chance=0.2):
+    if random.random() < chance:
         return random.choice([
             {"hp": -1, "food": 0, "morale": 0, "text": "A mischievous pixie steals a bite of your rations! -1 HP from the chase"},
             {"hp": 0, "food": 1, "morale": 0, "text": "You stumble upon a glowing mushroom patch! +1 Food"},
@@ -166,3 +166,28 @@ def get_random_event():
             {"hp": 0, "food": 0, "morale": 2, "text": "A bard passes by and plays a joyful tune. +2 Morale!"}
         ])
     return -1
+
+### DIFFICULTY CONFIG ### 
+DIFF_CFG = {
+    "easy":{
+        "starve_morale_every_n_days": 3, 
+        "low_food_death_days": 4, 
+        "low_morale_death_days": 4,
+        "surprise_chance": 0.25, 
+        "risk_success_bonus": +0.1
+        },
+    "normal":{
+        "starve_morale_every_n_days": 2, 
+        "low_food_death_days": 3, 
+        "low_morale_death_days": 3,
+        "surprise_chance": 0.20, 
+        "risk_success_bonus":  0.00
+        },
+    "hard":{
+        "starve_morale_every_n_days": 1, 
+        "low_food_death_days": 2, 
+        "low_morale_death_days": 2,
+        "surprise_chance": 0.15, 
+        "risk_success_bonus": -0.1
+        },
+}
